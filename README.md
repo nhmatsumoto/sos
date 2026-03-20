@@ -13,121 +13,85 @@ Estimar a altura, posição e orientação de objetos (casas, prédios, pontes, 
 
 # 1. Modelo de Formação da Imagem
 
-A intensidade de um pixel é dada por:
-
-\[
-I(x, y) = \rho(x, y) \cdot \max(0, \mathbf{n}(x, y) \cdot \mathbf{s}) + I_{shadow}
-\]
+I(x, y) = rho(x, y) * max(0, dot(n(x, y), s)) + I_shadow
 
 Onde:
 
-- \( I(x,y) \): intensidade observada
-- \( \rho(x,y) \): refletância (albedo)
-- \( \mathbf{n}(x,y) \): normal da superfície
-- \( \mathbf{s} \): direção do sol
-- \( I_{shadow} \): componente de sombra
+- I(x,y): intensidade observada
+- rho(x,y): refletância (albedo)
+- n(x,y): normal da superfície
+- s: direção do sol
+- I_shadow: componente de sombra
 
 ---
 
 # 2. Direção da Luz (Sol)
 
-A direção da luz depende de:
-
-- Latitude \( \phi \)
-- Longitude \( \lambda \)
-- Tempo \( t \)
-
-\[
-\mathbf{s} =
-\begin{bmatrix}
-\cos(\theta_z)\sin(\gamma) \\
-\cos(\theta_z)\cos(\gamma) \\
-\sin(\theta_z)
-\end{bmatrix}
-\]
+s = [
+    cos(theta_z) * sin(gamma),
+    cos(theta_z) * cos(gamma),
+    sin(theta_z)
+]
 
 Onde:
 
-- \( \theta_z \): elevação solar
-- \( \gamma \): azimute solar
+- theta_z: elevação solar
+- gamma: azimute solar
 
 ---
 
 # 3. Altura via Sombra
 
-\[
-h = L \cdot \tan(\theta_z)
-\]
+h = L * tan(theta_z)
 
-- \( h \): altura do objeto
-- \( L \): comprimento da sombra
-- \( \theta_z \): ângulo do sol
+- h: altura do objeto
+- L: comprimento da sombra
+- theta_z: ângulo do sol
 
 ---
 
 # 4. Comprimento da Sombra
 
-\[
-L = \sqrt{(x_s - x_o)^2 + (y_s - y_o)^2}
-\]
+L = sqrt((x_s - x_o)^2 + (y_s - y_o)^2)
 
-- \( (x_o, y_o) \): base do objeto
-- \( (x_s, y_s) \): fim da sombra
+- (x_o, y_o): base do objeto
+- (x_s, y_s): fim da sombra
 
 ---
 
 # 5. Conversão Pixel → Mundo Real
 
-\[
-L_{real} = L_{pixel} \cdot S
-\]
+L_real = L_pixel * S
 
-- \( S \): escala (metros/pixel)
+- S: escala (metros/pixel)
 
 ---
 
 # 6. Estimativa baseada em RGB
 
-Sem depender explicitamente da sombra:
+h ≈ f(I_R, I_G, I_B, grad(I), s)
 
-\[
-h \approx f(I_R, I_G, I_B, \nabla I, \mathbf{s})
-\]
-
-- \( \nabla I \): gradiente (bordas/sombras)
-- \( f \): função aprendida (rede neural)
+- grad(I): gradiente da imagem (bordas/sombras)
+- f: função aprendida (rede neural)
 
 ---
 
 # 7. Segmentação de Objetos
 
-Cada objeto:
-
-\[
-O_i = \{(x, y) \in \Omega \mid \text{pixel pertence ao objeto } i\}
-\]
+O_i = conjunto de pixels pertencentes ao objeto i
 
 Centroide:
 
-\[
-(x_c, y_c) = \frac{1}{|O_i|} \sum_{(x,y)\in O_i} (x,y)
-\]
+x_c = soma(x) / N  
+y_c = soma(y) / N  
 
 ---
 
 # 8. Orientação Geográfica
 
-Direção da sombra:
+theta_shadow = atan2(y_s - y_o, x_s - x_o)
 
-\[
-\theta_{shadow} = \arctan2(y_s - y_o, x_s - x_o)
-\]
-
-Orientação do objeto:
-
-\[
-\theta_{object} = \theta_{shadow} + \pi
-\]
+theta_object = theta_shadow + PI
 
 ---
 
@@ -135,40 +99,26 @@ Orientação do objeto:
 
 ## Entrada
 
-\[
-X = \{I(x,y), \mathbf{s}, t, \phi, \lambda\}
-\]
+X = {imagem, direção do sol, tempo, latitude, longitude}
 
 ## Saída (por objeto)
 
-\[
-\hat{y}_i =
-\begin{cases}
-h_i \\
-(x_i, y_i) \\
-\theta_i \\
-\text{classe}_i
-\end{cases}
-\]
+Para cada objeto i:
+
+- h_i → altura
+- (x_i, y_i) → posição
+- theta_i → orientação
+- class_i → tipo (casa, prédio, etc.)
 
 ---
 
 # 10. Função de Perda
 
-\[
-\mathcal{L} =
-\alpha \cdot \|h - \hat{h}\|^2 +
-\beta \cdot \|\theta - \hat{\theta}\|^2 +
-\gamma \cdot \text{IoU}_{loss} +
-\delta \cdot \text{CrossEntropy}
-\]
-
-Componentes:
-
-- Erro de altura
-- Erro de orientação
-- Erro de segmentação
-- Erro de classificação
+Loss = 
+    alpha * erro_altura +
+    beta * erro_orientacao +
+    gamma * erro_segmentacao (IoU) +
+    delta * erro_classificacao
 
 ---
 
@@ -176,29 +126,26 @@ Componentes:
 
 Dataset:
 
-\[
-D = \{(X_i, Y_i)\}
-\]
+D = {(imagem, labels)}
 
-- \( X_i \): imagem renderizada
-- \( Y_i \): labels
-  - altura
-  - posição
-  - orientação
-  - posição solar
+Labels:
+
+- altura
+- posição
+- orientação
+- posição do sol
 
 ---
 
 # 12. Problema Formal
 
-\[
-f: \text{Imagem Top-Down} \rightarrow \text{Mapa 3D Semântico}
-\]
+f(imagem) → mapa 3D semântico
 
-\[
-f(I) =
-\{O_i, h_i, (x_i,y_i), \theta_i\}_{i=1}^N
-\]
+Resultado:
+
+Para cada objeto i:
+
+{altura, posição, orientação}
 
 ---
 
@@ -218,27 +165,36 @@ Sistema híbrido:
 
 Sem sombra ou metadados:
 
-\[
-h \text{ não é diretamente observável}
-\]
-
-→ Problema mal condicionado  
-→ A rede aprende inferência estatística
+→ altura não é diretamente observável  
+→ problema mal condicionado  
+→ o modelo aprende por inferência estatística  
 
 ---
 
 # Resultado Final Esperado
 
-Dado:
+Entrada:
 
-\[
-I(x,y), t, \phi, \lambda
-\]
+imagem + tempo + latitude + longitude
 
-O sistema retorna:
+Saída:
 
-\[
-\forall i:
-\quad
-(h_i, x_i, y_i, \theta_i, class_i)
-\]
+Para cada objeto:
+
+- altura
+- posição
+- orientação
+- classe
+
+---
+
+# Interpretação
+
+Você está construindo um sistema que:
+
+- Reconstrói informação 3D a partir de imagem 2D
+- Usa física (sombras e trigonometria)
+- Usa aprendizado de máquina (Deep Learning)
+- Generaliza de dados sintéticos para o mundo real
+
+---
